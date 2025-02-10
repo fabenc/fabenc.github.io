@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Encryption</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>File Encryption</h2>
+        <div class="input-group">
+            <label for="file">Select File:</label>
+            <input type="file" id="file" required>
+        </div>
+        <div class="input-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" required>
+        </div>
+        <button onclick="encryptFile()">Encrypt File</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        async function encryptFile() {
+            const fileInput = document.getElementById('file');
+            const passwordInput = document.getElementById('password');
+            const statusDiv = document.getElementById('status');
+
+            if (!fileInput.files.length || !passwordInput.value) {
+                showStatus('Please select a file and enter a password.', 'error');
+                return;
+            }
+
+            try {
+                const file = fileInput.files[0];
+                const password = passwordInput.value;
+
+                // Read the file
+                const fileData = await file.arrayBuffer();
+
+                // Generate a random salt
+                const salt = crypto.getRandomValues(new Uint8Array(16));
+
+                // Derive key from password
+                const key = await deriveKey(password, salt);
+
+                // Generate random IV
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+
+                // Encrypt the file
+                const encryptedData = await crypto.subtle.encrypt(
+                    {
+                        name: 'AES-GCM',
+                        iv: iv
+                    },
+                    key,
+                    fileData
+                );
+
+                // Combine salt, IV, and encrypted data
+                const resultArray = new Uint8Array(salt.length + iv.length + encryptedData.byteLength);
+                resultArray.set(salt, 0);
+                resultArray.set(iv, salt.length);
+                resultArray.set(new Uint8Array(encryptedData), salt.length + iv.length);
+
+                // Download the encrypted file
+                downloadFile(resultArray, file.name + '.encrypted');
+                showStatus('File encrypted successfully!', 'success');
+
+            } catch (error) {
+                showStatus('Error encrypting file: ' + error.message, 'error');
+            }
+        }
+
+        async function deriveKey(password, salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                enc.encode(password),
+                'PBKDF2',
+                false,
+                ['deriveBits', 'deriveKey']
+            );
+
+            return crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: 100000,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        function downloadFile(data, filename) {
+            const blob = new Blob([data], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+              .then((registration) => {
+                console.log('Service Worker registered:', registration);
+              })
+              .catch((error) => {
+                console.error('Service Worker registration failed:', error);
+              });
+          });
+        }
+      </script>
+</body>
+</html>
