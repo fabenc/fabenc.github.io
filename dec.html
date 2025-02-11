@@ -35,6 +35,10 @@
             background-color: #f2dede;
             color: #a94442;
         }
+        .text-small{
+            font-size: 14px;
+            font-weight: 100;
+        }
     </style>
 </head>
 <body>
@@ -50,6 +54,13 @@
         </div>
         <button onclick="decryptFile()">Decrypt File</button>
         <div id="status"></div>
+        <div>
+            <h3>Examples <span class="text-small">(password: '1234')</span></h3>
+            <ul>
+                <li><a href="/app-debug.apk.encrypted" download>app-debug.apk.encrypted</a></li>
+                <li><a href="/data.rar.encrypted" download>data.rar.encrypted</a></li>
+            </ul>
+        </div>
     </div>
 
     <script>
